@@ -1,4 +1,4 @@
-// MIT License
+﻿// MIT License
 //
 // Copyright (c) 2023 Max Bronstring
 //
@@ -20,41 +20,37 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using TMPro;
 using UnityEngine;
-using UnityTools.Inventory.UI;
+using UnityEngine.UI;
 
-namespace UnityTools.Inventory
+namespace UnityTools.Inventory.UI
 {
     /// <summary>
-    /// A specific class for managing and updating an item inventory and corresponding UI.
+    /// A simple class displaying the inventory item properties.
     /// </summary>
-    public class ItemInventoryManager : MonoBehaviour
+    public class InventorySlot : MonoBehaviour
     {
-        [SerializeField] private ItemInventoryUI _inventoryUI;
+        [SerializeField] private Button _itemButton;
+        [SerializeField] private Button _removeButton;
+        [SerializeField] private Image _icon;
+        [SerializeField] private TMP_Text _countText;
 
-        private IInventory<InventoryItem> _inventory;
-
-        // Initialize the inventory and UI and bind to the inventory events.
-        private void Awake()
+        public void UpdateSlot(Sprite icon, int count)
         {
-            _inventory = new Inventory<InventoryItem>();
-            _inventory.OnItemAdded += OnInventoryUpdate;
-            _inventory.OnItemRemoved += OnInventoryUpdate;
+            // Validate the given data.
+            if (icon != null && count > 0) {
+                _icon.sprite = icon;
+                _countText.text = count.ToString();
+            }
 
-            _inventoryUI.UpdateUI(_inventory);
-        }
-
-        // Update the inventory UI when an item is added or removed.
-        private void OnInventoryUpdate(InventoryItem item)
-        {
-            _inventoryUI.UpdateUI(_inventory);
-        }
-
-        // Unbind from the inventory events when this object is destroyed.
-        private void OnDestroy()
-        {
-            _inventory.OnItemAdded -= OnInventoryUpdate;
-            _inventory.OnItemRemoved -= OnInventoryUpdate;
+            // Enable or disable the components based on the
+            // validity of the given data.
+            bool enabled = icon != null && count > 0;
+            _icon.enabled = enabled;
+            _removeButton.enabled = enabled;
+            _countText.enabled = enabled;
+            _itemButton.enabled = enabled;
         }
     }
 }

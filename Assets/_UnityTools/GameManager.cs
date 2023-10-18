@@ -21,40 +21,11 @@
 // SOFTWARE.
 
 using UnityEngine;
-using UnityTools.Inventory.UI;
 
-namespace UnityTools.Inventory
+namespace UnityTools
 {
-    /// <summary>
-    /// A specific class for managing and updating an item inventory and corresponding UI.
-    /// </summary>
-    public class ItemInventoryManager : MonoBehaviour
+    public class GameManager : MonoBehaviour
     {
-        [SerializeField] private ItemInventoryUI _inventoryUI;
 
-        private IInventory<InventoryItem> _inventory;
-
-        // Initialize the inventory and UI and bind to the inventory events.
-        private void Awake()
-        {
-            _inventory = new Inventory<InventoryItem>();
-            _inventory.OnItemAdded += OnInventoryUpdate;
-            _inventory.OnItemRemoved += OnInventoryUpdate;
-
-            _inventoryUI.UpdateUI(_inventory);
-        }
-
-        // Update the inventory UI when an item is added or removed.
-        private void OnInventoryUpdate(InventoryItem item)
-        {
-            _inventoryUI.UpdateUI(_inventory);
-        }
-
-        // Unbind from the inventory events when this object is destroyed.
-        private void OnDestroy()
-        {
-            _inventory.OnItemAdded -= OnInventoryUpdate;
-            _inventory.OnItemRemoved -= OnInventoryUpdate;
-        }
     }
 }

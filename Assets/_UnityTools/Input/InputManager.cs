@@ -1,46 +1,199 @@
+// MIT License
+//
+// Copyright (c) 2023 Max Bronstring
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 using System;
+using System.Linq;
 using UnityEngine.InputSystem;
 
 namespace UnityTools.Input
 {
+    using InputListener = Action<InputAction.CallbackContext>;
+
+    /// <summary>
+    /// A static input manager class that binds methods to the input action asset.
+    /// </summary>
     public static class InputManager
     {
-        private static InputActionsCore _inputActions = new();
+        private static InputActionAsset[] s_inputActionAssets = null;
+        private static bool s_initialized = false;
 
         static InputManager()
         {
-            _inputActions = null;
-            _inputActions = new();
+            s_initialized = false;
+            s_inputActionAssets = null;
         }
 
-        public static void AddListener(string inputActionNameOrId, Action<InputAction.CallbackContext> listener)
+        // Populate the input action assets array with an input action asset of choice.
+        public static void Initialize(params InputActionAsset[] assets)
         {
-            if (_inputActions == null)
-                throw new NullReferenceException("[InputManager]: The InputManager has not been initialized yet.");
+            if (assets.Length < 1)
+                throw new ArgumentNullException("assets", new Exception("You are trying to initialize the Input Manager with no Input Action Asset."));
 
-            var action = _inputActions.FindAction(inputActionNameOrId);
-            if (action != null) {
-                action.started += listener;
-                action.performed += listener;
-                action.canceled += listener;
-                return;
+            if (!s_initialized) {
+                s_inputActionAssets = assets.Where(asset => asset != null).ToArray();
+
+                for (int i = 0; i < s_inputActionAssets.Length; i++) {
+                    s_inputActionAssets[i].Enable();
+                }
+
+                s_initialized = true;
             }
-            throw new ArgumentException($"[InputManager]: The action with name/id ({inputActionNameOrId}) could not be found.");
         }
 
-        public static void RemoveListener(string inputActionNameOrId, Action<InputAction.CallbackContext> listener)
+        // Destroy all the references to the input action asset(s).
+        public static void Dinitialize()
         {
-            if (_inputActions == null)
+            if (s_initialized) {
+                for (int i = 0; i < s_inputActionAssets.Length; i++) {
+                    s_inputActionAssets[i].Disable();
+                }
+
+                s_inputActionAssets = null;
+                s_initialized = false;
+            }
+        }
+
+        /// <summary>
+        /// Add one or multiple listeners to the corresponding input action. <para />
+        /// The naming format you should use for the listener is "ActionMapName + _ + On + ActionName". <br />
+        /// (example: Player_OnJump)
+        /// </summary>
+        /// <param name="listeners" />
+        /// <exception cref="NullReferenceException" />
+        public static void AddListener(params InputListener[] listeners)
+        {
+            if (s_inputActionAssets == null)
                 throw new NullReferenceException("[InputManager]: The InputManager has not been initialized yet.");
 
-            var action = _inputActions.FindAction(inputActionNameOrId);
-            if (action != null) {
-                action.started -= listener;
-                action.performed -= listener;
-                action.canceled -= listener;
-                return;
+            foreach (var listener in listeners) {
+                // Parse the listener's name to an input action name.
+                string actionName = GetParsedActionName(listener.Method.Name);
+
+                if (actionName == string.Empty)
+                    continue;
+
+                foreach (var asset in s_inputActionAssets) {
+                    // Try and find the corresponding input action.
+                    var action = asset.FindAction(actionName);
+
+                    // If the found input action is valid, the listener will
+                    // subscribe to the input action.
+                    if (action != null) {
+                        action.started += listener;
+                        action.performed += listener;
+                        action.canceled += listener;
+                        return;
+                    }
+                }
             }
-            throw new ArgumentException($"[InputManager]: The action with name/id ({inputActionNameOrId}) could not be found.");
+        }
+
+        /// <summary>
+        /// Remove one or multiple listeners from the corresponding input action. <para />
+        /// The naming format you should use for the listener is "ActionMapName + _ + On + ActionName". <br />
+        /// (example: Player_OnJump)
+        /// </summary>
+        /// <param name="listeners" />
+        /// <exception cref="NullReferenceException" />
+        public static void RemoveListener(params InputListener[] listeners)
+        {
+            if (s_inputActionAssets == null)
+                throw new NullReferenceException("[InputManager]: The InputManager has not been initialized yet.");
+
+            foreach (var asset in s_inputActionAssets) {
+                foreach (var listener in listeners) {
+
+                    // Parse the listener's name to an input action name and
+                    // try and find the corresponding input action.
+                    var actionName = GetParsedActionName(listener.Method.Name);
+                    var action = asset.FindAction(actionName);
+
+                    // If the found input action is valid, the listener will
+                    // unsubscribe from the input action.
+                    if (action != null) {
+                        action.started -= listener;
+                        action.performed -= listener;
+                        action.canceled -= listener;
+                        return;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Enable a specific action in the active input action asset(s).
+        /// </summary>
+        /// <param name="action" />
+        public static void Enable(InputListener action)
+        {
+            var actionName = GetParsedActionName(action.Method.Name);
+            foreach (var asset in s_inputActionAssets) {
+                asset.FindAction(actionName, true)?.Enable();
+            }
+        }
+
+        /// <summary>
+        /// Disable a specific action in the active input action asset(s).
+        /// </summary>
+        /// <param name="action" />
+        public static void Disable(InputListener action)
+        {
+            var actionName = GetParsedActionName(action.Method.Name);
+            foreach (var asset in s_inputActionAssets) {
+                asset.FindAction(actionName, true)?.Disable();
+            }
+        }
+
+        /// <summary>
+        /// Enable a specific action map in the input action asset(s).
+        /// </summary>
+        /// <param name="actionMap" />
+        public static void EnableActionMap(string actionMap)
+        {
+            foreach (var asset in s_inputActionAssets) {
+                asset.FindActionMap(actionMap, true)?.Enable();
+            }
+        }
+
+        /// <summary>
+        /// Disable a specific action map in the input action asset(s).
+        /// </summary>
+        /// <param name="actionMap" />
+        public static void DisableActionMap(string actionMap)
+        {
+            foreach (var asset in s_inputActionAssets) {
+                asset.FindActionMap(actionMap, true)?.Disable();
+            }
+        }
+
+        /// <summary>
+        /// Parse the method name to an input action name. <br />
+        /// This converts "ActionMap_OnInputAction" to "ActionMap/InputAction"
+        /// </summary>
+        /// <param name="methodName" />
+        /// <returns />
+        private static string GetParsedActionName(string methodName)
+        {
+            return methodName.Replace("_On", "/");
         }
     }
 }
