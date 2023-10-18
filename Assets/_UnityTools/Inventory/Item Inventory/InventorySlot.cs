@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -31,26 +32,48 @@ namespace UnityTools.Inventory.UI
     /// </summary>
     public class InventorySlot : MonoBehaviour
     {
+        public event Action<InventoryItem> OnSlotSelected;
+        public event Action<InventoryItem> OnRemoveButtonPressed;
+
         [SerializeField] private Button _itemButton;
         [SerializeField] private Button _removeButton;
+        [SerializeField] private Image _removeButtonImage;
         [SerializeField] private Image _icon;
         [SerializeField] private TMP_Text _countText;
 
-        public void UpdateSlot(Sprite icon, int count)
+        private InventoryItem _inventoryItem;
+
+        private void Awake()
         {
+            // Bind to the on click events of the buttons.
+            _itemButton.onClick.AddListener(() => OnSlotSelected?.Invoke(_inventoryItem));
+            _removeButton.onClick.AddListener(() => OnRemoveButtonPressed?.Invoke(_inventoryItem));
+        }
+
+        public void UpdateSlot(InventoryItem inventoryItem, int count)
+        {
+            _inventoryItem = inventoryItem;
+
             // Validate the given data.
-            if (icon != null && count > 0) {
-                _icon.sprite = icon;
+            if (_inventoryItem != null && count > 0) {
+                _icon.sprite = _inventoryItem.Icon;
                 _countText.text = count.ToString();
             }
 
             // Enable or disable the components based on the
             // validity of the given data.
-            bool enabled = icon != null && count > 0;
+            bool enabled = _inventoryItem != null && count > 0;
             _icon.enabled = enabled;
-            _removeButton.enabled = enabled;
+            _removeButtonImage.enabled = enabled;
             _countText.enabled = enabled;
             _itemButton.enabled = enabled;
+        }
+
+        private void OnDestroy()
+        {
+            // Unbind from the on click events of the buttons.
+            _itemButton.onClick.RemoveAllListeners();
+            _removeButton.onClick.RemoveAllListeners();
         }
     }
 }

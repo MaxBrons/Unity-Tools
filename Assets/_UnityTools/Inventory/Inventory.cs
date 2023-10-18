@@ -26,17 +26,39 @@ using System.Collections.Generic;
 namespace UnityTools.Inventory
 {
     /// <summary>
+    /// This class is used to store the item and the count as
+    /// a managed KeyValuePair for the inventory.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class InventoryEntry<T>
+    {
+        public readonly T Item;
+        public int Count;
+
+        public InventoryEntry(T item, int amount)
+        {
+            Item = item;
+            Count = amount;
+        }
+
+        public InventoryEntry<T> Clone()
+        {
+            return new InventoryEntry<T>(Item, Count);
+        }
+    }
+
+    /// <summary>
     /// An interface for default inventory functionality.
     /// </summary>
     /// <typeparam name="T" />
     public interface IInventory<T>
     {
-        public event Action<T> OnItemAdded;
-        public event Action<T> OnItemRemoved;
+        public event Action<T, int> OnItemAdded;
+        public event Action<T, int> OnItemRemoved;
 
-        public bool Add(T item);
-        public bool Remove(T item);
-        public Dictionary<T, int> GetItems();
+        public bool Add(T item, int amount = 1);
+        public bool Remove(T item, int amount = 1);
+        public IEnumerable<InventoryEntry<T>> GetItems();
     }
 
     /// <summary>
@@ -45,10 +67,10 @@ namespace UnityTools.Inventory
     /// <typeparam name="T" />
     public class Inventory<T> : IInventory<T>
     {
-        public virtual event Action<T> OnItemAdded;
-        public virtual event Action<T> OnItemRemoved;
+        public virtual event Action<T, int> OnItemAdded;
+        public virtual event Action<T, int> OnItemRemoved;
 
-        protected Dictionary<T, int> _items = new();
+        protected List<InventoryEntry<T>> _items = new();
 
         /// <summary>
         /// Add an item to the inventory. <br />
@@ -56,15 +78,18 @@ namespace UnityTools.Inventory
         /// </summary>
         /// <param name="item" />
         /// <returns>True if the item was succesfully added.</returns>
-        public virtual bool Add(T item)
+        public virtual bool Add(T item, int amount = 1)
         {
             if (item != null) {
-                if (_items.ContainsKey(item))
-                    _items[item]++;
-                else
-                    _items.Add(item, 1);
+                int validAmount = Math.Max(amount, 1);
+                var inventoryItem = _items.Find(x => x.Item.Equals(item));
 
-                OnItemAdded?.Invoke(item);
+                if (inventoryItem != null)
+                    inventoryItem.Count += validAmount;
+                else
+                    _items.Add(new(item, validAmount));
+
+                OnItemAdded?.Invoke(item, validAmount);
                 return true;
             }
             return false;
@@ -77,19 +102,37 @@ namespace UnityTools.Inventory
         /// </summary>
         /// <param name="item" />
         /// <returns>True if the item was succesfully removed.</returns>
-        public virtual bool Remove(T item)
+        public virtual bool Remove(T item, int amount = 1)
         {
-            if (item != null && _items.ContainsKey(item)) {
-                if (_items[item] <= 1)
-                    _items.Remove(item);
-                else
-                    _items[item]--;
+            if (item == null)
+                return false;
 
-                OnItemRemoved?.Invoke(item);
+            var inventoryItem = _items.Find(x => x.Item.Equals(item));
+            if (inventoryItem == null)
+                return false;
+
+            int validAmount = Math.Max(amount, 1);
+
+            if (inventoryItem.Count - validAmount >= 0) {
+                inventoryItem.Count -= validAmount;
+
+                if (inventoryItem.Count == 0)
+                    _items.Remove(inventoryItem);
+
+                OnItemRemoved?.Invoke(item, validAmount);
+                return true;
             }
             return false;
         }
 
-        public Dictionary<T, int> GetItems() => _items;
+        public IEnumerable<InventoryEntry<T>> GetItems()
+        {
+            List<InventoryEntry<T>> itemListCopy = new(_items.Count);
+
+            for (int i = 0; i < _items.Count; i++) {
+                itemListCopy.Add(_items[i].Clone());
+            }
+            return itemListCopy;
+        }
     }
 }

@@ -30,10 +30,30 @@ namespace UnityTools.Inventory.UI
     /// <summary>
     /// A class for displaying and updating all corresponding inventory UI items.
     /// </summary>
-    [Serializable]
-    public class ItemInventoryUI : IInventoryUI<InventoryItem>
+    public class ItemInventoryUI : MonoBehaviour, IInventoryUI<InventoryItem>
     {
-        [SerializeField] private List<InventorySlot> _inventoryItems = new();
+        public event Action<InventoryItem> OnItemSelected;
+        public event Action<InventoryItem> OnItemRemoveButtonPressed;
+
+        [SerializeField] private Canvas _canvas;
+        [SerializeField] private List<InventorySlot> _inventorySlots = new();
+
+        private void Start()
+        {
+            foreach (var slot in _inventorySlots) {
+                slot.OnSlotSelected += OnItemSelected;
+                slot.OnRemoveButtonPressed += OnItemRemoveButtonPressed;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            foreach (var slot in _inventorySlots) {
+                slot.OnSlotSelected -= OnItemSelected;
+                slot.OnRemoveButtonPressed -= OnItemRemoveButtonPressed;
+            }
+            _inventorySlots = null;
+        }
 
         /// <summary>
         /// Update all the slots with the inventory items. <br />
@@ -46,15 +66,27 @@ namespace UnityTools.Inventory.UI
             if (inventory == null)
                 return;
 
-            var items = inventory.GetItems().Keys.ToArray();
-            var counts = inventory.GetItems().Values.ToArray();
-            for (int i = 0; i < _inventoryItems.Count; i++) {
-                if (i < items.Length) {
-                    _inventoryItems[i].UpdateSlot(items[i].Icon, counts[i]);
+            var items = inventory.GetItems().ToList();
+            if (items == null)
+                return;
+
+            for (int i = 0; i < _inventorySlots.Count; i++) {
+                if (i < items.Count) {
+                    _inventorySlots[i].UpdateSlot(items[i].Item, items[i].Count);
                     continue;
                 }
-                _inventoryItems[i].UpdateSlot(null, 0);
+                _inventorySlots[i].UpdateSlot(null, 0);
             }
+        }
+
+        public void SetVisible(bool value)
+        {
+            _canvas.enabled = value;
+        }
+
+        public bool ToggleVisible()
+        {
+            return (_canvas.enabled = !_canvas.enabled);
         }
     }
 }
