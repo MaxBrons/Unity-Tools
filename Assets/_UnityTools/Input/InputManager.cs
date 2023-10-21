@@ -21,6 +21,8 @@
 // SOFTWARE.
 
 using System;
+using System.Buffers;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.InputSystem;
 
@@ -35,27 +37,39 @@ namespace UnityTools.Input
     {
         private static InputActionAsset[] s_inputActionAssets = null;
         private static bool s_initialized = false;
+        private static List<InputListener> s_listenerQue = new();
 
         static InputManager()
         {
             s_initialized = false;
             s_inputActionAssets = null;
+            s_listenerQue = null;
         }
 
         // Populate the input action assets array with an input action asset of choice.
         public static void Initialize(params InputActionAsset[] assets)
         {
+            var invalidActionsException = new Exception("You are trying to initialize the Input Manager with no Input Action Asset.");
+
             if (assets.Length < 1)
-                throw new ArgumentNullException("assets", new Exception("You are trying to initialize the Input Manager with no Input Action Asset."));
+                throw new ArgumentNullException("assets", invalidActionsException);
 
             if (!s_initialized) {
                 s_inputActionAssets = assets.Where(asset => asset != null).ToArray();
+
+                if (s_inputActionAssets.Length == 0)
+                    throw new ArgumentNullException("s_inputActionAssets", invalidActionsException);
 
                 for (int i = 0; i < s_inputActionAssets.Length; i++) {
                     s_inputActionAssets[i].Enable();
                 }
 
                 s_initialized = true;
+
+                if (s_listenerQue != null) {
+                    AddListener(s_listenerQue.ToArray());
+                    s_listenerQue = null;
+                }
             }
         }
 
@@ -67,22 +81,29 @@ namespace UnityTools.Input
                     s_inputActionAssets[i].Disable();
                 }
 
-                s_inputActionAssets = null;
                 s_initialized = false;
+                s_inputActionAssets = null;
+                s_listenerQue = null;
             }
         }
 
         /// <summary>
         /// Add one or multiple listeners to the corresponding input action. <para />
-        /// The naming format you should use for the listener is "ActionMapName + _ + On + ActionName". <br />
+        /// The naming format you should use for the listener is "ActionMapName + _On + ActionName". <br />
         /// (example: Player_OnJump)
         /// </summary>
         /// <param name="listeners" />
         /// <exception cref="NullReferenceException" />
         public static void AddListener(params InputListener[] listeners)
         {
-            if (s_inputActionAssets == null)
-                throw new NullReferenceException("[InputManager]: The InputManager has not been initialized yet.");
+            if (!s_initialized) {
+                s_listenerQue ??= new();
+
+                foreach (var listener in listeners) {
+                    s_listenerQue.Add(listener);
+                }
+                return;
+            }
 
             foreach (var listener in listeners) {
                 // Parse the listener's name to an input action name.
@@ -101,7 +122,7 @@ namespace UnityTools.Input
                         action.started += listener;
                         action.performed += listener;
                         action.canceled += listener;
-                        return;
+                        break;
                     }
                 }
             }
@@ -109,15 +130,22 @@ namespace UnityTools.Input
 
         /// <summary>
         /// Remove one or multiple listeners from the corresponding input action. <para />
-        /// The naming format you should use for the listener is "ActionMapName + _ + On + ActionName". <br />
+        /// The naming format you should use for the listener is "ActionMapName + _On + ActionName". <br />
         /// (example: Player_OnJump)
         /// </summary>
         /// <param name="listeners" />
         /// <exception cref="NullReferenceException" />
         public static void RemoveListener(params InputListener[] listeners)
         {
-            if (s_inputActionAssets == null)
-                throw new NullReferenceException("[InputManager]: The InputManager has not been initialized yet.");
+            if (!s_initialized) {
+                if (s_listenerQue.Count < 1)
+                    return;
+
+                foreach (var listener in listeners) {
+                    s_listenerQue.Remove(listener);
+                }
+                return;
+            }
 
             foreach (var asset in s_inputActionAssets) {
                 foreach (var listener in listeners) {
@@ -133,7 +161,7 @@ namespace UnityTools.Input
                         action.started -= listener;
                         action.performed -= listener;
                         action.canceled -= listener;
-                        return;
+                        break;
                     }
                 }
             }
