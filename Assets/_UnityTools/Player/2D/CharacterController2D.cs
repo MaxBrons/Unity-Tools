@@ -23,7 +23,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace UnityTools.CharacterController
+namespace UnityTools.Player
 {
     /// <summary>
     /// A physics-based 2D character controller class that handles 

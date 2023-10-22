@@ -24,47 +24,53 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityTools.Input;
 
-namespace UnityTools.CharacterController
+namespace UnityTools.Player
 {
     /// <summary>
-    /// A class that handles player movement input and 
-    /// that interfaces with the <see cref="CharacterController2D"/>
+    /// A class that handles the swapping of sprites from a given list of 
+    /// sprites, based on a set condition.
     /// </summary>
-    [RequireComponent(typeof(CharacterController2D))]
-    public class PlayerMovement2D : MonoBehaviour
+    public class SpriteController2D : MonoBehaviour
     {
-        private CharacterController2D _controller;
-        private Vector2 _moveDelta;
-        private bool _crouching;
-        private bool _jumping;
+        [SerializeField] private SpriteRenderer _spriteRenderer;
+        [SerializeField] private bool _useMousePosition = true;
 
-        private void Awake()
+        private Vector2 _currentPointerPosition;
+        private Vector2 _moveDelta;
+
+        // Check the set condition and change the current sprite 
+        // to the condition's result.
+        private void FixedUpdate()
         {
-            _controller = GetComponent<CharacterController2D>();
+            if (_useMousePosition) {
+                var worldPos = Camera.main.ScreenToWorldPoint(_currentPointerPosition);
+                var angle = Vector3.SignedAngle(worldPos, transform.position, transform.up);
+
+                _spriteRenderer.flipX = angle < 0;
+                return;
+            }
+
+            if (_moveDelta.x != 0)
+                _spriteRenderer.flipX = _moveDelta.x < 0;
         }
 
         // Add all the input methods to the Input Manager.
         private void OnEnable()
         {
-            InputManager.AddListener(Player_OnMove, Player_OnCrouch, Player_OnJump);
+            InputManager.AddListener(Player_OnPoint, Player_OnMove);
         }
 
         // Remove all the input methods from the Input Manager.
         private void OnDisable()
         {
-            InputManager.RemoveListener(Player_OnMove, Player_OnCrouch, Player_OnJump);
+            InputManager.RemoveListener(Player_OnPoint, Player_OnMove);
         }
 
-        // Call the character controller methods for moving, jumping and crouching.
-        private void FixedUpdate()
+        // Set the current value of the pointer position on screen.
+        private void Player_OnPoint(InputAction.CallbackContext context)
         {
-            _controller.Move(_moveDelta);
-            _controller.Crouch(_crouching);
-
-            if (_jumping) {
-                _jumping = false;
-                _controller.Jump();
-            }
+            if (context.performed)
+                _currentPointerPosition = context.ReadValue<Vector2>();
         }
 
         // Set the current value of the player movement input.
@@ -72,20 +78,6 @@ namespace UnityTools.CharacterController
         {
             if (!context.started)
                 _moveDelta = context.ReadValue<Vector2>();
-        }
-
-        // Set the current value of the player crouch state.
-        private void Player_OnCrouch(InputAction.CallbackContext context)
-        {
-            if (!context.started)
-                _crouching = context.ReadValueAsButton();
-        }
-
-        // Set the current value of the player jump state.
-        private void Player_OnJump(InputAction.CallbackContext context)
-        {
-            if (!context.started)
-                _jumping = context.ReadValueAsButton();
         }
     }
 }
