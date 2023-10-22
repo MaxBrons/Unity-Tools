@@ -72,7 +72,6 @@ namespace UnityTools.Inventory
             _inventoryUI.OnItemSelected += OnItemSelected;
             _inventoryUI.OnItemRemoveButtonPressed += OnItemRemoveButtonPressed;
 
-            InputManager.Initialize(new InputActionsCore().asset);
             InputManager.AddListener(Inventory_OnToggle);
         }
 
