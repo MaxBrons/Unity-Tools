@@ -138,11 +138,11 @@ namespace UnityTools.Input
         public static void RemoveListener(params InputListener[] listeners)
         {
             if (!s_initialized) {
-                if (s_listenerQue.Count < 1)
+                if (s_listenerQue?.Count < 1)
                     return;
 
                 foreach (var listener in listeners) {
-                    s_listenerQue.Remove(listener);
+                    s_listenerQue?.Remove(listener);
                 }
                 return;
             }
